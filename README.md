@@ -5,7 +5,7 @@ An AI-powered web application that monitors Indian government websites for anima
 ## 🌟 Features
 
 ### 🤖 Automated Monitoring
-- **Real-time Scraping**: Monitors government websites including Ministry of Environment, PRS India, and e-Gazette
+- **Real-time Scraping**: Monitors government websites including Animal Welfare Board of India, PRS India, and Aquaculture Certification Scheme India
 - **Scheduled Checks**: Runs every 6 hours and daily at 9 AM IST
 - **Smart Detection**: Uses AI to identify animal welfare-related policies
 
