@@ -1,34 +1,41 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import dotenv from 'dotenv';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import dotenv from "dotenv";
 
 dotenv.config();
 
 // Validate API key on startup
-if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
-  console.warn('⚠️ WARNING: Gemini API key not configured properly!');
-  console.warn('Please set GEMINI_API_KEY in your .env file');
-  console.warn('Get your API key from: https://makersuite.google.com/app/apikey');
+if (
+  !process.env.GEMINI_API_KEY ||
+  process.env.GEMINI_API_KEY === "your_gemini_api_key_here"
+) {
+  console.warn("⚠️ WARNING: Gemini API key not configured properly!");
+  console.warn("Please set GEMINI_API_KEY in your .env file");
+  console.warn(
+    "Get your API key from: https://makersuite.google.com/app/apikey"
+  );
 }
 
-const genAI = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here' 
-  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-  : null;
+const genAI =
+  process.env.GEMINI_API_KEY &&
+  process.env.GEMINI_API_KEY !== "your_gemini_api_key_here"
+    ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+    : null;
 
 export async function analyzeWithGemini(policy) {
   // Check if API key is configured
   if (!genAI) {
-    console.warn('⚠️ Gemini API not configured, using fallback analysis');
+    console.warn("⚠️ Gemini API not configured, using fallback analysis");
     return generateFallbackAnalysis(policy);
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+
     const prompt = `Analyze this government policy consultation for animal welfare relevance:
 
 Title: ${policy.title}
 Description: ${policy.description}
-Ministry: ${policy.ministry || 'Unknown'}
+Ministry: ${policy.ministry || "Unknown"}
 
 Please provide a JSON response with the following structure:
 {
@@ -61,69 +68,121 @@ Rate relevance from 0-100 where:
 
 Respond only with valid JSON.`;
 
-    console.log('🧠 Sending request to Gemini API...');
+    console.log("🧠 Sending request to Gemini API...");
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
-    
+
     try {
       // Clean the response to extract JSON
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const analysis = JSON.parse(jsonMatch[0]);
-        
+
         // Validate and sanitize required fields
         const sanitizedAnalysis = {
           isAnimalWelfare: Boolean(analysis.isAnimalWelfare),
-          relevanceScore: Math.max(0, Math.min(100, Number(analysis.relevanceScore) || 0)),
-          publicSubmissionsOpen: Boolean(analysis.publicSubmissionsOpen !== false),
-          keyPoints: Array.isArray(analysis.keyPoints) ? analysis.keyPoints.slice(0, 5) : ['Analysis completed'],
-          animalWelfareAspects: Array.isArray(analysis.animalWelfareAspects) ? analysis.animalWelfareAspects.slice(0, 5) : [],
-          urgencyLevel: ['low', 'medium', 'high'].includes(analysis.urgencyLevel) ? analysis.urgencyLevel : 'medium',
-          analysis: String(analysis.analysis || 'Policy analyzed for animal welfare relevance')
+          relevanceScore: Math.max(
+            0,
+            Math.min(100, Number(analysis.relevanceScore) || 0)
+          ),
+          publicSubmissionsOpen: Boolean(
+            analysis.publicSubmissionsOpen !== false
+          ),
+          keyPoints: Array.isArray(analysis.keyPoints)
+            ? analysis.keyPoints.slice(0, 5)
+            : ["Analysis completed"],
+          animalWelfareAspects: Array.isArray(analysis.animalWelfareAspects)
+            ? analysis.animalWelfareAspects.slice(0, 5)
+            : [],
+          urgencyLevel: ["low", "medium", "high"].includes(
+            analysis.urgencyLevel
+          )
+            ? analysis.urgencyLevel
+            : "medium",
+          analysis: String(
+            analysis.analysis || "Policy analyzed for animal welfare relevance"
+          ),
         };
-        
-        console.log(`✅ Gemini analysis complete: ${sanitizedAnalysis.relevanceScore}% relevance, Animal welfare: ${sanitizedAnalysis.isAnimalWelfare}`);
+
+        console.log(
+          `✅ Gemini analysis complete: ${sanitizedAnalysis.relevanceScore}% relevance, Animal welfare: ${sanitizedAnalysis.isAnimalWelfare}`
+        );
         return sanitizedAnalysis;
       }
     } catch (parseError) {
-      console.error('❌ Error parsing Gemini JSON response:', parseError.message);
-      console.log('Raw response:', text.substring(0, 200) + '...');
+      console.error(
+        "❌ Error parsing Gemini JSON response:",
+        parseError.message
+      );
+      console.log("Raw response:", text.substring(0, 200) + "...");
     }
-    
+
     // Fallback if JSON parsing fails
-    return generateFallbackAnalysis(policy, 'Gemini API response parsing failed');
-    
+    return generateFallbackAnalysis(
+      policy,
+      "Gemini API response parsing failed"
+    );
   } catch (error) {
-    console.error('❌ Gemini API error:', error.message);
-    
-    if (error.message.includes('API key not valid')) {
-      console.error('🔑 Invalid API key! Please check your GEMINI_API_KEY in .env file');
-      console.error('Get your API key from: https://makersuite.google.com/app/apikey');
-    } else if (error.message.includes('quota')) {
-      console.error('📊 API quota exceeded. Check your Gemini API usage limits');
-    } else if (error.message.includes('blocked')) {
-      console.error('🚫 Request blocked by safety filters');
+    console.error("❌ Gemini API error:", error.message);
+
+    if (error.message.includes("API key not valid")) {
+      console.error(
+        "🔑 Invalid API key! Please check your GEMINI_API_KEY in .env file"
+      );
+      console.error(
+        "Get your API key from: https://makersuite.google.com/app/apikey"
+      );
+    } else if (error.message.includes("quota")) {
+      console.error(
+        "📊 API quota exceeded. Check your Gemini API usage limits"
+      );
+    } else if (error.message.includes("blocked")) {
+      console.error("🚫 Request blocked by safety filters");
     }
-    
-    return generateFallbackAnalysis(policy, `Gemini API error: ${error.message}`);
+
+    return generateFallbackAnalysis(
+      policy,
+      `Gemini API error: ${error.message}`
+    );
   }
 }
 
-function generateFallbackAnalysis(policy, reason = 'API not configured') {
-  const text = (policy.title + ' ' + policy.description).toLowerCase();
-  
+function generateFallbackAnalysis(policy, reason = "API not configured") {
+  const text = (policy.title + " " + policy.description).toLowerCase();
+
   // Enhanced keyword-based analysis
   const animalWelfareKeywords = {
-    high: ['animal welfare', 'animal rights', 'animal cruelty', 'animal protection', 'wildlife protection'],
-    medium: ['livestock', 'veterinary', 'zoo', 'circus', 'pet', 'companion animal', 'farm animal'],
-    low: ['animal', 'wildlife', 'conservation', 'biodiversity', 'environment', 'agriculture']
+    high: [
+      "animal welfare",
+      "animal rights",
+      "animal cruelty",
+      "animal protection",
+      "wildlife protection",
+    ],
+    medium: [
+      "livestock",
+      "veterinary",
+      "zoo",
+      "circus",
+      "pet",
+      "companion animal",
+      "farm animal",
+    ],
+    low: [
+      "animal",
+      "wildlife",
+      "conservation",
+      "biodiversity",
+      "environment",
+      "agriculture",
+    ],
   };
-  
+
   let relevanceScore = 0;
   let isAnimalWelfare = false;
   let aspects = [];
-  
+
   // Check for high-relevance keywords
   for (const keyword of animalWelfareKeywords.high) {
     if (text.includes(keyword)) {
@@ -132,7 +191,7 @@ function generateFallbackAnalysis(policy, reason = 'API not configured') {
       aspects.push(`Contains "${keyword}" - high relevance`);
     }
   }
-  
+
   // Check for medium-relevance keywords
   for (const keyword of animalWelfareKeywords.medium) {
     if (text.includes(keyword)) {
@@ -141,7 +200,7 @@ function generateFallbackAnalysis(policy, reason = 'API not configured') {
       aspects.push(`Contains "${keyword}" - medium relevance`);
     }
   }
-  
+
   // Check for low-relevance keywords
   for (const keyword of animalWelfareKeywords.low) {
     if (text.includes(keyword) && relevanceScore < 30) {
@@ -149,45 +208,55 @@ function generateFallbackAnalysis(policy, reason = 'API not configured') {
       aspects.push(`Contains "${keyword}" - low relevance`);
     }
   }
-  
+
   relevanceScore = Math.min(relevanceScore, 100);
   isAnimalWelfare = relevanceScore > 30;
-  
+
   const analysis = {
     isAnimalWelfare,
     relevanceScore,
     publicSubmissionsOpen: true,
     keyPoints: [
-      'Keyword-based analysis performed',
+      "Keyword-based analysis performed",
       `Relevance score: ${relevanceScore}%`,
-      reason
+      reason,
     ],
-    animalWelfareAspects: aspects.length > 0 ? aspects : ['No specific animal welfare aspects detected'],
-    urgencyLevel: relevanceScore > 70 ? 'high' : relevanceScore > 40 ? 'medium' : 'low',
-    analysis: `Fallback analysis: ${reason}. Keyword-based relevance score: ${relevanceScore}%. ${isAnimalWelfare ? 'Appears to be animal welfare related.' : 'Does not appear to be directly animal welfare related.'}`
+    animalWelfareAspects:
+      aspects.length > 0
+        ? aspects
+        : ["No specific animal welfare aspects detected"],
+    urgencyLevel:
+      relevanceScore > 70 ? "high" : relevanceScore > 40 ? "medium" : "low",
+    analysis: `Fallback analysis: ${reason}. Keyword-based relevance score: ${relevanceScore}%. ${
+      isAnimalWelfare
+        ? "Appears to be animal welfare related."
+        : "Does not appear to be directly animal welfare related."
+    }`,
   };
-  
-  console.log(`🔄 Fallback analysis complete: ${relevanceScore}% relevance, Animal welfare: ${isAnimalWelfare}`);
+
+  console.log(
+    `🔄 Fallback analysis complete: ${relevanceScore}% relevance, Animal welfare: ${isAnimalWelfare}`
+  );
   return analysis;
 }
 
 export async function generateDraftResponse(policy, tone) {
   if (!genAI) {
-    console.warn('⚠️ Gemini API not configured, using template response');
+    console.warn("⚠️ Gemini API not configured, using template response");
     return generateTemplateResponse(policy, tone);
   }
 
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    
+
     const tonePrompts = {
       legal: `Generate a formal, legal-focused response to this animal welfare policy consultation. Use professional legal language, reference relevant laws and regulations, and provide specific legal recommendations. The response should be authoritative and well-structured.`,
-      
+
       emotional: `Generate an emotional, compassionate response to this animal welfare policy consultation. Appeal to empathy and compassion, use heartfelt language about animal suffering, and include persuasive emotional arguments. The response should be moving and compelling.`,
-      
-      dataBacked: `Generate a data-driven, evidence-based response to this animal welfare policy consultation. Include statistics, research findings, scientific studies, and economic analysis. Use evidence-based arguments and factual information to support recommendations.`
+
+      dataBacked: `Generate a data-driven, evidence-based response to this animal welfare policy consultation. Include statistics, research findings, scientific studies, and economic analysis. Use evidence-based arguments and factual information to support recommendations.`,
     };
-    
+
     const prompt = `${tonePrompts[tone]}
 
 Policy Details:
@@ -208,7 +277,6 @@ Generate only the response text, no additional formatting or explanations.`;
     const result = await model.generateContent(prompt);
     const response = await result.response;
     return response.text();
-    
   } catch (error) {
     console.error(`❌ Error generating ${tone} draft:`, error.message);
     return generateTemplateResponse(policy, tone);
@@ -273,7 +341,7 @@ Research Findings:
 I recommend implementing evidence-based welfare standards supported by scientific research.
 
 Respectfully submitted,
-[Your Name]`
+[Your Name]`,
   };
 
   return templates[tone] || templates.legal;
