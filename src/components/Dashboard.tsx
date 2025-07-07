@@ -5,34 +5,40 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { type DateRange } from 'react-day-picker';
 import { 
   Clock, 
   AlertCircle, 
   CheckCircle, 
   FileText, 
-  Calendar,
+  Calendar as CalendarIcon,
   Filter,
   Search,
   TrendingUp,
-  Users,
-  Mail,
+
   RefreshCw,
   Globe,
   Loader2,
   AlertTriangle,
   Brain,
-  Trash2
+  Trash2,
+  Grid3X3,
+  List
 } from 'lucide-react';
 import { apiService, Policy } from '@/services/api';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [ministryFilter, setMinistryFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [filteredPolicies, setFilteredPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,8 +75,26 @@ export function Dashboard() {
       filtered = filtered.filter(policy => policy.ministry === ministryFilter);
     }
 
+    // Date range filtering
+    if (dateRange?.from || dateRange?.to) {
+      filtered = filtered.filter(policy => {
+        const policyDate = new Date(policy.deadline);
+        const fromDate = dateRange?.from ? new Date(dateRange.from) : null;
+        const toDate = dateRange?.to ? new Date(dateRange.to) : null;
+        
+        if (fromDate && toDate) {
+          return policyDate >= fromDate && policyDate <= toDate;
+        } else if (fromDate) {
+          return policyDate >= fromDate;
+        } else if (toDate) {
+          return policyDate <= toDate;
+        }
+        return true;
+      });
+    }
+
     setFilteredPolicies(filtered);
-  }, [searchTerm, statusFilter, ministryFilter, policies]);
+  }, [searchTerm, statusFilter, ministryFilter, dateRange, policies]);
 
   // Update stats when policies change
   useEffect(() => {
@@ -369,10 +393,47 @@ export function Dashboard() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" className="gap-2">
-              <Calendar className="h-4 w-4" />
-              Date Range
-            </Button>
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                                      <CalendarIcon className="h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                        {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    "Date Range"
+                  )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+              {(dateRange?.from || dateRange?.to) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDateRange(undefined)}
+                  className="px-2"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -386,10 +447,16 @@ export function Dashboard() {
               : `Policies (${filteredPolicies.length})`
             }
           </h2>
-          <Tabs defaultValue="grid" className="w-auto">
+          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'grid' | 'list')} className="w-auto">
             <TabsList>
-              <TabsTrigger value="grid">Grid</TabsTrigger>
-              <TabsTrigger value="list">List</TabsTrigger>
+              <TabsTrigger value="grid" className="gap-2">
+                <Grid3X3 className="h-4 w-4" />
+                Grid
+              </TabsTrigger>
+              <TabsTrigger value="list" className="gap-2">
+                <List className="h-4 w-4" />
+                List
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -427,14 +494,24 @@ export function Dashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className={cn(
+            viewMode === 'grid' 
+              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              : "space-y-4"
+          )}>
             {filteredPolicies.map((policy) => {
               const daysLeft = getDaysUntilDeadline(policy.deadline);
               const urgency = daysLeft <= 7 ? 'urgent' : daysLeft <= 30 ? 'warning' : 'normal';
               
               return (
-                <Card key={policy.id} className="hover:shadow-lg transition-shadow duration-200">
-                  <CardHeader className="pb-3">
+                <Card key={policy.id} className={cn(
+                  "hover:shadow-lg transition-shadow duration-200",
+                  viewMode === 'list' && "flex"
+                )}>
+                  <CardHeader className={cn(
+                    "pb-3",
+                    viewMode === 'list' && "flex-1"
+                  )}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
                         {getStatusIcon(policy.status)}
@@ -446,18 +523,31 @@ export function Dashboard() {
                         {policy.ministry}
                       </Badge>
                     </div>
-                    <CardTitle className="text-lg leading-tight">
+                    <CardTitle className={cn(
+                      "leading-tight",
+                      viewMode === 'grid' ? "text-lg" : "text-xl"
+                    )}>
                       {policy.title}
                     </CardTitle>
+                    {viewMode === 'list' && (
+                      <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
+                        {policy.description}
+                      </p>
+                    )}
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {policy.description}
-                    </p>
+                  <CardContent className={cn(
+                    "space-y-4",
+                    viewMode === 'list' && "flex-1 flex flex-col justify-between"
+                  )}>
+                    {viewMode === 'grid' && (
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {policy.description}
+                      </p>
+                    )}
                     
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                         <span>Deadline: {new Date(policy.deadline).toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
