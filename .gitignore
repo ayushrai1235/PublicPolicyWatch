@@ -32,7 +32,7 @@ dist-ssr
 
 # Data folder - contains policy storage and temporary files
 server/data/policies.json
-data/
+
 
 # Temporary files
 server/temp/
