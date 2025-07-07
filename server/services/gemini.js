@@ -346,3 +346,87 @@ Respectfully submitted,
 
   return templates[tone] || templates.legal;
 }
+
+export async function getGeminiDescription(pdfUrl) {
+  if (!genAI) {
+    console.warn('⚠️ Gemini API not configured, using fallback description');
+    return generateFallbackDescription(pdfUrl);
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    
+    const prompt = `Analyze this PDF URL and provide a brief description of what the document is about:
+
+PDF URL: ${pdfUrl}
+
+Please provide a concise description (100-200 words) that explains:
+1. What type of document this is (circular, notification, policy, etc.)
+2. The main topic or subject matter
+3. Any key points or important information
+4. Whether it's related to animal welfare, government policy, or other relevant topics
+
+Focus on being informative and accurate. If you cannot access the PDF content directly, provide a description based on the URL and any available context.
+
+Respond with just the description, no additional formatting.`;
+
+    console.log('🧠 Sending PDF description request to Gemini API...');
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const description = response.text().trim();
+    
+    if (description && description.length > 20) {
+      console.log(`✅ Gemini description generated: ${description.length} characters`);
+      return description;
+    } else {
+      console.warn('⚠️ Gemini returned empty or too short description');
+      return generateFallbackDescription(pdfUrl);
+    }
+    
+  } catch (error) {
+    console.error('❌ Gemini API error for PDF description:', error.message);
+    
+    if (error.message.includes('API key not valid')) {
+      console.error('🔑 Invalid API key! Please check your GEMINI_API_KEY in .env file');
+    } else if (error.message.includes('quota')) {
+      console.error('📊 API quota exceeded. Check your Gemini API usage limits');
+    } else if (error.message.includes('blocked')) {
+      console.error('🚫 Request blocked by safety filters');
+    }
+    
+    return generateFallbackDescription(pdfUrl, `Gemini API error: ${error.message}`);
+  }
+}
+
+function generateFallbackDescription(pdfUrl, reason = 'API not configured') {
+  const urlLower = pdfUrl.toLowerCase();
+  let description = 'Government document';
+  
+  if (urlLower.includes('awbi.gov.in')) {
+    description = 'Animal Welfare Board of India document';
+  } else if (urlLower.includes('aqcsindia.gov.in')) {
+    description = 'Aquaculture Certification Scheme India document';
+  } else if (urlLower.includes('moef.gov.in')) {
+    description = 'Ministry of Environment document';
+  } else if (urlLower.includes('prsindia.org')) {
+    description = 'PRS India legislative document';
+  }
+  
+  if (urlLower.includes('circular')) {
+    description += ' - Circular';
+  } else if (urlLower.includes('notification')) {
+    description += ' - Notification';
+  } else if (urlLower.includes('policy')) {
+    description += ' - Policy document';
+  }
+  
+  if (urlLower.includes('animal') || urlLower.includes('welfare') || urlLower.includes('livestock')) {
+    description += ' related to animal welfare';
+  }
+  
+  description += '. Please refer to the original PDF for complete details.';
+  
+  console.log(`🔄 Fallback description generated: ${description}`);
+  return description;
+}
