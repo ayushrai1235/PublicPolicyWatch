@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import {
-  Clock,
-  AlertCircle,
-  FileText,
+import { 
+  Clock, 
+  AlertCircle, 
+  FileText, 
   Calendar,
   Download,
   Mail,
@@ -18,11 +18,13 @@ import {
   Brain,
   BarChart3,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  DollarSign,
+  Building2,
+  Users
 } from 'lucide-react';
 import { apiService, Policy } from '@/services/api';
 import { toast } from 'sonner';
-import ReactMarkdown from 'react-markdown';
 
 export function PolicyDetails() {
   const { id } = useParams();
@@ -60,7 +62,7 @@ export function PolicyDetails() {
 
   const handleAnalyzePolicy = async () => {
     if (!policy) return;
-
+    
     setAnalyzing(true);
     try {
       const response = await apiService.analyzePolicy(policy);
@@ -70,11 +72,14 @@ export function PolicyDetails() {
           ...prev,
           aiAnalysis: {
             ...response.data,
-            draftsGenerated: 3,
+            draftsGenerated: 6,
             drafts: {
               legal: '',
               emotional: '',
-              dataBacked: ''
+              dataBacked: '',
+              financial: '',
+              business: '',
+              livelihood: ''
             }
           }
         } : null);
@@ -92,7 +97,7 @@ export function PolicyDetails() {
 
   const handleGenerateDraft = async (tone: string) => {
     if (!policy) return;
-
+    
     setGeneratingDraft(tone);
     try {
       const response = await apiService.generateDraft(policy, tone);
@@ -133,7 +138,7 @@ export function PolicyDetails() {
 
   const handleDownloadDraft = (draft: string, type: string) => {
     if (!policy) return;
-
+    
     const blob = new Blob([draft], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -151,6 +156,15 @@ export function PolicyDetails() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
+
+  const draftTypes = [
+    { key: 'legal', label: 'Legal & Regulatory', icon: AlertCircle, description: 'Formal legal approach with regulatory focus' },
+    { key: 'emotional', label: 'Emotional & Compassionate', icon: Users, description: 'Heartfelt appeal focusing on animal welfare' },
+    { key: 'dataBacked', label: 'Data-Driven & Evidence', icon: BarChart3, description: 'Research-based with statistics and studies' },
+    { key: 'financial', label: 'Financial Impact', icon: DollarSign, description: 'Economic analysis and cost-benefit focus' },
+    { key: 'business', label: 'Business Impact', icon: Building2, description: 'Industry and commercial considerations' },
+    { key: 'livelihood', label: 'Livelihood Impact', icon: Users, description: 'Rural communities and farmer welfare focus' }
+  ];
 
   if (loading) {
     return (
@@ -245,8 +259,8 @@ export function PolicyDetails() {
             ) : (
               <>
                 <div className="text-2xl font-bold text-muted-foreground">--</div>
-                <Button
-                  size="sm"
+                <Button 
+                  size="sm" 
                   onClick={handleAnalyzePolicy}
                   disabled={analyzing}
                   className="mt-2"
@@ -266,7 +280,7 @@ export function PolicyDetails() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
+              <FileText className="h-4 w-4" />
               Draft Status
             </CardTitle>
           </CardHeader>
@@ -274,7 +288,7 @@ export function PolicyDetails() {
             {policy.aiAnalysis ? (
               <>
                 <div className="text-2xl font-bold">Ready</div>
-                <p className="text-sm text-muted-foreground">3 drafts available</p>
+                <p className="text-sm text-muted-foreground">6 draft types available</p>
               </>
             ) : (
               <>
@@ -299,7 +313,7 @@ export function PolicyDetails() {
               <p className="text-muted-foreground mb-4">
                 Run AI analysis first to generate policy insights and response drafts
               </p>
-              <Button
+              <Button 
                 onClick={handleAnalyzePolicy}
                 disabled={analyzing}
                 className="gap-2"
@@ -314,11 +328,14 @@ export function PolicyDetails() {
             </div>
           ) : (
             <Tabs defaultValue="analysis" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="analysis">AI Analysis</TabsTrigger>
-                <TabsTrigger value="legal">Legal Draft</TabsTrigger>
-                <TabsTrigger value="emotional">Emotional Draft</TabsTrigger>
-                <TabsTrigger value="data">Data-Backed Draft</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-7">
+                <TabsTrigger value="analysis">Analysis</TabsTrigger>
+                <TabsTrigger value="legal">Legal</TabsTrigger>
+                <TabsTrigger value="emotional">Emotional</TabsTrigger>
+                <TabsTrigger value="dataBacked">Data</TabsTrigger>
+                <TabsTrigger value="financial">Financial</TabsTrigger>
+                <TabsTrigger value="business">Business</TabsTrigger>
+                <TabsTrigger value="livelihood">Livelihood</TabsTrigger>
               </TabsList>
 
               <TabsContent value="analysis" className="space-y-4">
@@ -326,7 +343,7 @@ export function PolicyDetails() {
                   <div className="p-4 bg-muted rounded-lg">
                     <h3 className="font-medium mb-2">Analysis Results</h3>
                     <p className="text-sm mb-3">{policy.aiAnalysis.analysis}</p>
-
+                    
                     {policy.aiAnalysis.keyPoints && policy.aiAnalysis.keyPoints.length > 0 && (
                       <div className="space-y-2">
                         <h4 className="font-medium text-sm">Key Points:</h4>
@@ -368,9 +385,9 @@ export function PolicyDetails() {
                             <span>Time Sensitivity</span>
                             <span className="capitalize">{policy.aiAnalysis.urgencyLevel}</span>
                           </div>
-                          <Progress
-                            value={policy.aiAnalysis.urgencyLevel === 'high' ? 90 : policy.aiAnalysis.urgencyLevel === 'medium' ? 60 : 30}
-                            className="h-2"
+                          <Progress 
+                            value={policy.aiAnalysis.urgencyLevel === 'high' ? 90 : policy.aiAnalysis.urgencyLevel === 'medium' ? 60 : 30} 
+                            className="h-2" 
                           />
                         </div>
                       </CardContent>
@@ -379,36 +396,38 @@ export function PolicyDetails() {
                 </div>
               </TabsContent>
 
-              {['legal', 'emotional', 'dataBacked'].map((tone) => (
-                <TabsContent key={tone} value={tone === 'dataBacked' ? 'data' : tone} className="space-y-4">
+              {draftTypes.map((draftType) => (
+                <TabsContent key={draftType.key} value={draftType.key} className="space-y-4">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-medium">
-                        {tone === 'legal' && 'Legal & Regulatory Focused Response'}
-                        {tone === 'emotional' && 'Emotional & Compassionate Response'}
-                        {tone === 'dataBacked' && 'Data-Driven & Evidence-Based Response'}
-                      </h3>
+                      <div className="space-y-1">
+                        <h3 className="font-medium flex items-center gap-2">
+                          <draftType.icon className="h-4 w-4" />
+                          {draftType.label}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">{draftType.description}</p>
+                      </div>
                       <div className="flex gap-2">
-                        {policy.aiAnalysis.drafts[tone as keyof typeof policy.aiAnalysis.drafts] ? (
+                        {policy.aiAnalysis.drafts[draftType.key as keyof typeof policy.aiAnalysis.drafts] ? (
                           <>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleCopyDraft(
-                                policy.aiAnalysis!.drafts[tone as keyof typeof policy.aiAnalysis.drafts],
-                                tone
+                                policy.aiAnalysis!.drafts[draftType.key as keyof typeof policy.aiAnalysis.drafts], 
+                                draftType.key
                               )}
                               className="gap-2"
                             >
                               <Copy className="h-4 w-4" />
-                              {copiedDraft === tone ? 'Copied!' : 'Copy'}
+                              {copiedDraft === draftType.key ? 'Copied!' : 'Copy'}
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleDownloadDraft(
-                                policy.aiAnalysis!.drafts[tone as keyof typeof policy.aiAnalysis.drafts],
-                                tone
+                                policy.aiAnalysis!.drafts[draftType.key as keyof typeof policy.aiAnalysis.drafts], 
+                                draftType.key
                               )}
                               className="gap-2"
                             >
@@ -419,32 +438,30 @@ export function PolicyDetails() {
                         ) : (
                           <Button
                             size="sm"
-                            onClick={() => handleGenerateDraft(tone)}
-                            disabled={generatingDraft === tone}
+                            onClick={() => handleGenerateDraft(draftType.key)}
+                            disabled={generatingDraft === draftType.key}
                             className="gap-2"
                           >
-                            {generatingDraft === tone ? (
+                            {generatingDraft === draftType.key ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <FileText className="h-4 w-4" />
                             )}
-                            {generatingDraft === tone ? 'Generating...' : 'Generate Draft'}
+                            {generatingDraft === draftType.key ? 'Generating...' : 'Generate Draft'}
                           </Button>
                         )}
                       </div>
                     </div>
                     <div className="p-4 bg-muted rounded-lg">
-                      {policy.aiAnalysis?.drafts?.[tone as keyof typeof policy.aiAnalysis.drafts] ? (
-                        <div className="prose prose-sm text-left max-w-none">
-                          <ReactMarkdown>
-                            {policy.aiAnalysis.drafts[tone as keyof typeof policy.aiAnalysis.drafts] as string}
-                          </ReactMarkdown>
-                        </div>
+                      {policy.aiAnalysis.drafts[draftType.key as keyof typeof policy.aiAnalysis.drafts] ? (
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                          {policy.aiAnalysis.drafts[draftType.key as keyof typeof policy.aiAnalysis.drafts]}
+                        </p>
                       ) : (
                         <div className="text-center py-8">
                           <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                           <p className="text-sm text-muted-foreground">
-                            Click "Generate Draft" to create a {tone} response
+                            Click "Generate Draft" to create a {draftType.label.toLowerCase()} response
                           </p>
                         </div>
                       )}
