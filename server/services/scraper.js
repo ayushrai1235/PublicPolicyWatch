@@ -5,17 +5,6 @@ import { processPDFPolicy } from './pdfExtractor.js';
 // Updated government websites with PDF-enabled sites
 const GOVERNMENT_SITES = [
   {
-    name: 'PRS India',
-    url: 'https://prsindia.org',
-    consultationPath: '/billtrack',
-    selectors: {
-      container: ['.bill-item', '.legislation-item', '.post', 'article'],
-      title: ['.bill-title', '.title', 'h2', 'h3'],
-      description: ['.bill-summary', '.summary', '.description', 'p'],
-      deadline: ['.bill-deadline', '.deadline', '.date']
-    }
-  },
-  {
     name: 'Animal Welfare Board of India',
     url: 'https://awbi.gov.in',
     consultationPath: '/circulars',

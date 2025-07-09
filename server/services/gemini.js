@@ -29,7 +29,7 @@ export async function analyzeWithGemini(policy) {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `Analyze this government policy consultation for animal welfare relevance:
 
@@ -240,7 +240,51 @@ function generateFallbackAnalysis(policy, reason = "API not configured") {
   return analysis;
 }
 
-export async function generateDraftResponse(policy, tone) {
+// Tone normalization helper
+function normalizeTone(tone) {
+  if (!tone) return 'legal';
+  const t = tone.toLowerCase().replace(/[^a-z]/g, '');
+  if (t.includes('legal')) return 'legal';
+  if (t.includes('emotional')) return 'emotional';
+  if (t.includes('databacked') || t.includes('data')) return 'dataBacked';
+  if (t.includes('financial') || t.includes('finance')) return 'financial';
+  if (t.includes('business')) return 'business';
+  if (t.includes('livelihood') || t.includes('livinghood')) return 'livelihood';
+  return 'legal'; // default fallback
+}
+
+// --- Gemini Rate Limit Queue ---
+const geminiDraftQueue = [];
+let isProcessingGeminiQueue = false;
+const GEMINI_REQUEST_INTERVAL_MS = 5000; // 1 request every 5 seconds (12/min)
+
+function processGeminiQueue() {
+  if (isProcessingGeminiQueue || geminiDraftQueue.length === 0) return;
+  isProcessingGeminiQueue = true;
+
+  const { policy, tone, resolve, reject } = geminiDraftQueue.shift();
+
+  generateDraftResponseDirect(policy, tone)
+    .then(result => resolve(result))
+    .catch(err => reject(err))
+    .finally(() => {
+      isProcessingGeminiQueue = false;
+      if (geminiDraftQueue.length > 0) {
+        setTimeout(processGeminiQueue, GEMINI_REQUEST_INTERVAL_MS);
+      }
+    });
+}
+
+// Use this function instead of generateDraftResponse directly
+function queueGeminiDraftRequest(policy, tone) {
+  return new Promise((resolve, reject) => {
+    geminiDraftQueue.push({ policy, tone, resolve, reject });
+    processGeminiQueue();
+  });
+}
+
+// Rename the original generateDraftResponse to generateDraftResponseDirect
+export async function generateDraftResponseDirect(policy, tone) {
   if (!genAI) {
     console.warn("⚠️ Gemini API not configured, using template response");
     return generateTemplateResponse(policy, tone);
@@ -251,13 +295,19 @@ export async function generateDraftResponse(policy, tone) {
 
     const tonePrompts = {
       legal: `Generate a formal, legal-focused response to this animal welfare policy consultation. Use professional legal language, reference relevant laws and regulations, and provide specific legal recommendations. The response should be authoritative and well-structured.`,
-
       emotional: `Generate an emotional, compassionate response to this animal welfare policy consultation. Appeal to empathy and compassion, use heartfelt language about animal suffering, and include persuasive emotional arguments. The response should be moving and compelling.`,
-
       dataBacked: `Generate a data-driven, evidence-based response to this animal welfare policy consultation. Include statistics, research findings, scientific studies, and economic analysis. Use evidence-based arguments and factual information to support recommendations.`,
+      financial: `Generate a response that discusses how this policy might affect resources, planning, and long-term support for animal welfare. Consider how different groups and organizations could be supported to implement the policy successfully. Please provide a thoughtful and informative response suitable for a public policy discussion.`,
+      business: `Generate a response that considers how organizations, companies, and workers involved with animals might experience changes due to this policy. Discuss practical considerations for those who work in related fields. Please provide a thoughtful and informative response suitable for a public policy discussion.`,
+      livelihood: `Generate a response that explores how people and communities who care for or work with animals might be affected by this policy. Consider the well-being and daily lives of those in rural or animal-related roles. Please provide a thoughtful and informative response suitable for a public policy discussion.`
     };
 
-    const prompt = `${tonePrompts[tone]}
+    // Normalize the tone
+    const normalizedTone = normalizeTone(tone);
+    console.log("Requested draft tone:", tone, "| Normalized:", normalizedTone);
+    const selectedPrompt = tonePrompts[normalizedTone] || tonePrompts.legal;
+
+    const prompt = `${selectedPrompt}
 
 Policy Details:
 Title: ${policy.title}
@@ -282,6 +332,9 @@ Generate only the response text, no additional formatting or explanations.`;
     return generateTemplateResponse(policy, tone);
   }
 }
+
+// Export the queued version as generateDraftResponse
+export const generateDraftResponse = queueGeminiDraftRequest;
 
 function generateTemplateResponse(policy, tone) {
   const templates = {
@@ -342,9 +395,101 @@ I recommend implementing evidence-based welfare standards supported by scientifi
 
 Respectfully submitted,
 [Your Name]`,
+
+
+    financial: `Subject: Financial Impact Analysis - ${policy.title}
+
+Dear Financial Committee,
+
+I am submitting this response to highlight the financial implications of the proposed animal welfare policy.
+
+Economic Analysis:
+- Initial implementation costs estimated at ₹500-1000 crores
+- Long-term savings through reduced veterinary costs and improved productivity
+- Potential for new employment opportunities in welfare compliance sector
+- Export market advantages through improved welfare standards
+
+Cost-Benefit Considerations:
+- Prevention costs significantly lower than treatment expenses
+- Improved animal welfare reduces economic losses from disease outbreaks
+- Enhanced reputation benefits for Indian agricultural exports
+- Reduced healthcare costs for zoonotic disease prevention
+
+Financial Recommendations:
+- Establish dedicated welfare fund with government and industry contributions
+- Implement phased rollout to manage costs effectively
+- Provide tax incentives for early adopters
+- Create public-private partnerships for sustainable funding
+
+The economic benefits of this policy far outweigh the initial investment costs.
+
+Respectfully,
+[Your Name]`,
+
+    business: `Subject: Business Impact Assessment - ${policy.title}
+
+Dear Industry Relations Committee,
+
+As a stakeholder in the animal-related business sector, I am providing feedback on the commercial implications of this policy.
+
+Business Impact Analysis:
+- Compliance requirements will affect 2.5 million businesses nationwide
+- Transition period needed for small and medium enterprises
+- Competitive advantages for businesses adopting higher standards
+- Market differentiation opportunities through welfare certification
+
+Industry Considerations:
+- Training and capacity building requirements for workforce
+- Infrastructure upgrades needed for compliance
+- Supply chain modifications to meet new standards
+- Technology adoption for monitoring and reporting
+
+Business Recommendations:
+- Provide 18-24 month implementation timeline
+- Establish industry consultation committees
+- Create certification programs for compliant businesses
+- Develop technical assistance programs for SMEs
+
+This policy presents opportunities for innovation and market leadership while ensuring sustainable business practices.
+
+Best regards,
+[Your Name]`,
+
+    livelihood: `Subject: Livelihood Impact Response - ${policy.title}
+
+Dear Rural Development Committee,
+
+I am writing to address the livelihood implications of this animal welfare policy on farming communities and rural populations.
+
+Livelihood Impact Assessment:
+- Policy affects 70 million farmers and 8.8% of India's workforce
+- Rural communities depend on animal husbandry for 40% of agricultural income
+- Women constitute 69% of workforce in animal husbandry sector
+- Tribal communities rely heavily on traditional animal-based livelihoods
+
+Community Concerns:
+- Training needs for new welfare practices
+- Financial support during transition period
+- Market access for welfare-compliant products
+- Preservation of traditional knowledge and practices
+
+Livelihood Recommendations:
+- Establish farmer education and training programs
+- Provide subsidies and low-interest loans for compliance
+- Create premium markets for welfare-certified products
+- Develop insurance schemes for transition risks
+- Ensure community participation in policy implementation
+
+This policy must balance animal welfare with the economic security of millions of families whose livelihoods depend on animal husbandry.
+
+With community solidarity,
+[Your Name]`
+  
   };
 
-  return templates[tone] || templates.legal;
+  // Normalize the tone
+  const normalizedTone = normalizeTone(tone);
+  return templates[normalizedTone] || templates.legal;
 }
 
 export async function getGeminiDescription(pdfUrl) {

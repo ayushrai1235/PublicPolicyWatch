@@ -23,6 +23,9 @@ export interface Policy {
       legal: string;
       emotional: string;
       dataBacked: string;
+      financial: string;
+      business: string;
+      livelihood: string;
     };
   };
 }

@@ -272,13 +272,52 @@ Generate only the response text, no additional formatting.`,
 Title: ${policy.title}
 Description: ${policy.description}
 Ministry: ${policy.ministry}
+Deadline: ${policy.deadline}`,   
+
+ financial: `Generate a financial impact-focused response to this animal welfare policy consultation:
+    
+Title: ${policy.title}
+Description: ${policy.description}
+Ministry: ${policy.ministry}
 Deadline: ${policy.deadline}
 
 The response should:
-- Include relevant statistics about animal welfare
-- Reference scientific studies and research
-- Provide economic analysis
-- Use evidence-based arguments
+- Analyze economic costs and benefits
+- Address budget implications and funding requirements
+- Include cost-benefit analysis
+- Discuss financial sustainability
+- Be 300-500 words
+
+Generate only the response text, no additional formatting.`,
+
+    business: `Generate a business impact-focused response to this animal welfare policy consultation:
+    
+Title: ${policy.title}
+Description: ${policy.description}
+Ministry: ${policy.ministry}
+Deadline: ${policy.deadline}
+
+The response should:
+- Address industry and business impacts
+- Discuss market dynamics and competitiveness
+- Include practical business considerations
+- Address commercial operations
+- Be 300-500 words
+
+Generate only the response text, no additional formatting.`,
+
+    livelihood: `Generate a livelihood-focused response to this animal welfare policy consultation:
+    
+Title: ${policy.title}
+Description: ${policy.description}
+Ministry: ${policy.ministry}
+Deadline: ${policy.deadline}
+
+The response should:
+- Address impacts on farmers and rural communities
+- Discuss employment and income effects
+- Focus on community welfare
+- Address traditional livelihoods
 - Be 300-500 words
 
 Generate only the response text, no additional formatting.`
